@@ -71,6 +71,19 @@ uv run ruff check .
 uv run pytest -v
 ```
 
+### Global Multi-Subsystem Model (`SE`, `S`, `NE`, `N`)
+
+```bash
+uv run python -m ons_forecast.global_model
+```
+
+| Subsystem | Baseline D-7 MAE | Global LightGBM MAE | Global LightGBM MAPE |
+| --- | ---: | ---: | ---: |
+| `N` | 211.27 | **194.47** | **1.99%** |
+| `NE` | **456.29** | 467.87 | 3.12% |
+| `S` | 732.35 | **521.52** | **3.90%** |
+| `SE` | 2,787.07 | **2,155.03** | **4.69%** |
+
 ## Technical Decisions
 
 - **Zero temporal leakage**: to forecast `D+7`, all autoregressive features strictly use lags `>= 7 days` (`lag_7`, `lag_14`, `lag_21`, `lag_28`, and rolling mean/std computed over `t-7`) aligned on a continuous daily grid.

@@ -32,3 +32,27 @@ def load_gold_se(db_path: Path = DEFAULT_DB_PATH) -> pd.DataFrame:
 
     df["data_referencia"] = pd.to_datetime(df["data_referencia"])
     return df
+
+
+def load_silver_all(db_path: Path = DEFAULT_DB_PATH) -> pd.DataFrame:
+    """Load daily load series for all subsystems (SE, S, NE, N) from DuckDB Silver."""
+    if not db_path.exists():
+        raise FileNotFoundError(
+            f"DuckDB database not found at {db_path}. Run dbt first."
+        )
+
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        df = conn.execute(
+            """
+            SELECT
+                data_referencia,
+                id_subsistema,
+                nom_subsistema,
+                val_cargaenergiamwmed
+            FROM silver.silver_carga_energia
+            ORDER BY id_subsistema, data_referencia
+            """
+        ).fetchdf()
+
+    df["data_referencia"] = pd.to_datetime(df["data_referencia"])
+    return df

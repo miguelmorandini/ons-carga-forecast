@@ -1,10 +1,13 @@
-.PHONY: sync pipeline lint test dashboard mlflow
+.PHONY: sync pipeline global-model lint test dashboard mlflow
 
 sync:
 	uv sync
 
 pipeline:
 	uv run ons-pipeline
+
+global-model:
+	uv run python -m ons_forecast.global_model
 
 lint:
 	uv run ruff check .

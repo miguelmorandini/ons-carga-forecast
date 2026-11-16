@@ -20,6 +20,8 @@ FEATURE_COLUMNS = [
     "is_weekend",
     "is_holiday_br",
 ]
+SUBSYSTEM_CATEGORIES = ["SE", "S", "NE", "N"]
+GLOBAL_FEATURE_COLUMNS = [*FEATURE_COLUMNS, "id_subsistema"]
 
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -55,3 +57,16 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     daily["is_holiday_br"] = idx.to_series().dt.date.isin(br_holidays).astype(int).values
 
     return daily.reset_index()
+
+
+def build_global_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Build leak-free D+7 features per subsystem for a global multi-series model."""
+    frames: list[pd.DataFrame] = []
+    for sub_id, sub_df in df.groupby("id_subsistema", sort=False):
+        feat = build_features(sub_df)
+        feat["id_subsistema"] = sub_id
+        frames.append(feat)
+
+    out = pd.concat(frames, ignore_index=True)
+    out["id_subsistema"] = pd.Categorical(out["id_subsistema"], categories=SUBSYSTEM_CATEGORIES)
+    return out

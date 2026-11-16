@@ -8,7 +8,12 @@ import numpy as np
 import pandas as pd
 
 from ons_forecast.baseline import compute_naive_baseline
-from ons_forecast.features import FEATURE_COLUMNS, build_features
+from ons_forecast.features import (
+    FEATURE_COLUMNS,
+    GLOBAL_FEATURE_COLUMNS,
+    build_features,
+    build_global_features,
+)
 from ons_forecast.ingest import _is_valid_parquet
 from ons_forecast.train import fit_lgbm
 
@@ -73,3 +78,25 @@ def test_is_valid_parquet_rejects_corrupt_file(tmp_path: Path) -> None:
     bad_file = tmp_path / "corrupt.parquet"
     bad_file.write_bytes(b"not a parquet file")
     assert _is_valid_parquet(bad_file) is None
+
+
+def test_global_features_isolate_lags_per_subsystem() -> None:
+    se_df = _make_sample_series(n_days=40).assign(id_subsistema="SE")
+    s_df = _make_sample_series(n_days=40).assign(
+        id_subsistema="S",
+        val_cargaenergiamwmed=lambda d: d["val_cargaenergiamwmed"] * 0.3,
+    )
+    combined = pd.concat([se_df, s_df], ignore_index=True)
+    feats = build_global_features(combined)
+
+    target = pd.Timestamp("2025-02-05")
+    se_lag7 = feats.loc[
+        (feats["id_subsistema"] == "SE") & (feats["data_referencia"] == target), "lag_7"
+    ].iloc[0]
+    s_lag7 = feats.loc[
+        (feats["id_subsistema"] == "S") & (feats["data_referencia"] == target), "lag_7"
+    ].iloc[0]
+
+    assert set(GLOBAL_FEATURE_COLUMNS).issubset(feats.columns)
+    assert se_lag7 != s_lag7
+
