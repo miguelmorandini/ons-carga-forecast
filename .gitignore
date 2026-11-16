@@ -11,6 +11,7 @@ build/
 data/
 mlruns/
 mlartifacts/
+mlflow.db
 *.duckdb
 *.duckdb.wal
 

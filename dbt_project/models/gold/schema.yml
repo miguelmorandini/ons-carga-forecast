@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: gold_carga_diaria_se
+    description: "Série temporal diária da carga de energia do subsistema Sudeste/Centro-Oeste (SE)."
+    columns:
+      - name: data_referencia
+        description: "Data de referência única da série diária."
+        tests:
+          - not_null
+          - unique
+      - name: id_subsistema
+        description: "Código do subsistema (sempre SE)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["SE"]
+      - name: val_cargaenergiamwmed
+        description: "Carga de energia diária em MWmed."
+        tests:
+          - not_null

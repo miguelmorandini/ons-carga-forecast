@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: silver_carga_energia
+    description: "Dados diários de carga de energia por subsistema com tipos e datas padronizados."
+    columns:
+      - name: id_subsistema
+        description: "Código do subsistema (SE, S, NE, N)."
+        tests:
+          - not_null
+      - name: data_referencia
+        description: "Data de referência da carga diária."
+        tests:
+          - not_null
+      - name: val_cargaenergiamwmed
+        description: "Valor da carga de energia em MWmed."
+        tests:
+          - not_null
