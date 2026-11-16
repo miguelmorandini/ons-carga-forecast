@@ -17,6 +17,9 @@ dependencies = [
     "streamlit>=1.40.0",
 ]
 
+[project.scripts]
+ons-pipeline = "ons_forecast.pipeline:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",

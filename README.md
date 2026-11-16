@@ -16,9 +16,19 @@ LightGBM reduced **MAE from 2,787.07 MWmed to 2,179.31 MWmed** (**607.76 MWmed**
 
 Prerequisites: Python `>=3.12` and [`uv`](https://docs.astral.sh/uv/).
 
+### Single-Command Execution
+
+```bash
+uv sync
+uv run ons-pipeline
+```
+
+*(A [Makefile](Makefile) and [Dockerfile](Dockerfile) are also included for `make pipeline` or containerized runs.)*
+
+### Step-by-Step Execution
+
 ```bash
 # 1. Install dependencies
-uv sync
 
 # 2. Bronze ingestion (raw Parquet files from 2018 to current year)
 uv run python -m ons_forecast.ingest

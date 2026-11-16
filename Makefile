@@ -1,0 +1,19 @@
+.PHONY: sync pipeline lint test dashboard mlflow
+
+sync:
+	uv sync
+
+pipeline:
+	uv run ons-pipeline
+
+lint:
+	uv run ruff check .
+
+test:
+	uv run pytest -v
+
+dashboard:
+	uv run streamlit run src/ons_forecast/dashboard.py
+
+mlflow:
+	uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
