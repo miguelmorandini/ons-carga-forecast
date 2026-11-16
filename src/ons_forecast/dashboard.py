@@ -2,21 +2,34 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from ons_forecast.data_loader import load_gold_se
+try:
+    from ons_forecast.data_loader import DEFAULT_DB_PATH, load_gold_se
+except ModuleNotFoundError:  # Allow running directly on Streamlit Cloud without editable install
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from ons_forecast.data_loader import DEFAULT_DB_PATH, load_gold_se
 
 REPORTS_DIR = Path("reports")
 
 
 @st.cache_data(show_spinner=False)
-def load_historical_series() -> pd.DataFrame:
-    """Load the full SE daily load series from the DuckDB Gold layer."""
-    df = load_gold_se()
+def load_historical_series(reports_dir: Path = REPORTS_DIR) -> pd.DataFrame:
+    """Load the full SE daily load series from DuckDB or the exported Gold CSV."""
+    if DEFAULT_DB_PATH.exists():
+        df = load_gold_se()
+    else:
+        csv_path = reports_dir / "gold_carga_diaria_se.csv"
+        if not csv_path.exists():
+            raise FileNotFoundError(
+                f"Neither {DEFAULT_DB_PATH} nor {csv_path} was found."
+            )
+        df = pd.read_csv(csv_path)
     df["data_referencia"] = pd.to_datetime(df["data_referencia"])
     return df.sort_values("data_referencia").reset_index(drop=True)
 

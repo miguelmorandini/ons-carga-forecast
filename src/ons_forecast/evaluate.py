@@ -100,6 +100,7 @@ def run_backtesting(
     )
 
     reports_dir.mkdir(parents=True, exist_ok=True)
+    gold_df.to_csv(reports_dir / "gold_carga_diaria_se.csv", index=False)
     windows_df.to_csv(reports_dir / "backtesting_windows.csv", index=False)
     summary_df.to_csv(reports_dir / "backtesting_results.csv", index=False)
     pred_cols = [

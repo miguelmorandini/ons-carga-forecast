@@ -47,6 +47,12 @@ uv run streamlit run src/ons_forecast/dashboard.py
 uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
+#### Deploy on Streamlit Community Cloud
+
+1. Open [share.streamlit.io](https://share.streamlit.io/) and click **Create app**.
+2. Select repository `miguelmorandini/ons-carga-forecast`, branch `main`, and main file path `src/ons_forecast/dashboard.py`.
+3. Click **Deploy** (the dashboard automatically reads the exported Gold & backtesting CSVs in `reports/` when `data/warehouse.duckdb` is not present).
+
 ### Lint & Tests
 
 ```bash
