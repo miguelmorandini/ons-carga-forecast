@@ -66,6 +66,13 @@ def load_backtesting_artifacts(
     preds_df["ape_lgbm_pct"] = (
         preds_df["erro_abs_lgbm"] / preds_df["val_cargaenergiamwmed"]
     ) * 100
+    if "y_pred_autoets" in preds_df.columns:
+        preds_df["erro_abs_autoets"] = (
+            preds_df["val_cargaenergiamwmed"] - preds_df["y_pred_autoets"]
+        ).abs()
+        preds_df["ape_autoets_pct"] = (
+            preds_df["erro_abs_autoets"] / preds_df["val_cargaenergiamwmed"]
+        ) * 100
     return results_df, windows_df, preds_df
 
 
@@ -93,6 +100,16 @@ def build_series_figure(
                 mode="lines",
                 name="Baseline (D-7)",
                 line={"color": "#7f7f7f", "width": 1.8, "dash": "dot"},
+            )
+        )
+    if not preds_df.empty and "y_pred_autoets" in preds_df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=preds_df["data_referencia"],
+                y=preds_df["y_pred_autoets"],
+                mode="lines",
+                name="AutoETS (statsforecast)",
+                line={"color": "#2ca02c", "width": 1.8, "dash": "dash"},
             )
         )
     if not preds_df.empty:
@@ -125,10 +142,10 @@ def build_error_figure(
     """Build the daily forecast error comparison chart (MAE or APE %)."""
     fig = go.Figure()
     if metric == "mwmed":
-        lgbm_col, base_col = "erro_abs_lgbm", "erro_abs_baseline"
+        lgbm_col, base_col, ets_col = "erro_abs_lgbm", "erro_abs_baseline", "erro_abs_autoets"
         title, y_title = "Erro Absoluto Diário (MWmed)", "Erro Absoluto (MWmed)"
     else:
-        lgbm_col, base_col = "ape_lgbm_pct", "ape_baseline_pct"
+        lgbm_col, base_col, ets_col = "ape_lgbm_pct", "ape_baseline_pct", "ape_autoets_pct"
         title, y_title = "Erro Percentual Absoluto Diário (%)", "APE (%)"
 
     if show_baseline:
@@ -139,6 +156,18 @@ def build_error_figure(
                 mode="lines+markers",
                 name="Baseline (D-7)",
                 line={"color": "#7f7f7f", "dash": "dot"},
+                marker={"size": 5},
+            )
+        )
+
+    if ets_col in preds_df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=preds_df["data_referencia"],
+                y=preds_df[ets_col],
+                mode="lines+markers",
+                name="AutoETS (statsforecast)",
+                line={"color": "#2ca02c", "dash": "dash"},
                 marker={"size": 5},
             )
         )
@@ -177,6 +206,16 @@ def build_windows_figure(windows_df: pd.DataFrame, show_baseline: bool) -> go.Fi
                 y=windows_df["mae_baseline"],
                 name="Baseline (D-7)",
                 marker_color="#7f7f7f",
+            )
+        )
+
+    if "mae_autoets" in windows_df.columns:
+        fig.add_trace(
+            go.Bar(
+                x=labels,
+                y=windows_df["mae_autoets"],
+                name="AutoETS (statsforecast)",
+                marker_color="#2ca02c",
             )
         )
 

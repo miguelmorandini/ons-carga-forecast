@@ -10,6 +10,7 @@ LightGBM reduced **MAE from 2,787.07 MWmed to 2,179.31 MWmed** (**607.76 MWmed**
 | Model | MAE (MWmed) | MAPE (%) |
 | --- | ---: | ---: |
 | Baseline (D-7) | 2,787.07 | 6.19% |
+| AutoETS (`statsforecast`) | 2,365.24 | 5.22% |
 | **LightGBM** | **2,179.31** | **4.76%** |
 
 ## How to Run
