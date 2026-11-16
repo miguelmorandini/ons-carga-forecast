@@ -8,11 +8,17 @@ models:
         description: "Código do subsistema (SE, S, NE, N)."
         tests:
           - not_null
+          - accepted_values:
+              values: ["SE", "S", "NE", "N"]
+      - name: nom_subsistema
+        description: "Nome do subsistema."
+        tests:
+          - not_null
       - name: data_referencia
         description: "Data de referência da carga diária."
         tests:
           - not_null
       - name: val_cargaenergiamwmed
-        description: "Valor da carga de energia em MWmed."
+        description: "Valor da carga de energia em MWmed (estritamente positivo conforme dicionário ONS)."
         tests:
           - not_null
