@@ -24,7 +24,7 @@ def run_backtesting(
     reports_dir: Path = Path("reports"),
     experiment_name: str = "ons-carga-se",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Executa backtesting com janela expansiva semanal (treina no passado, testa nos próximos 7 dias)."""
+    """Executa backtesting com janela expansiva semanal (treina no passado, testa D+1..D+7)."""
     gold_df = load_gold_se()
     baseline_df = compute_naive_baseline(gold_df)
     feat_df = build_features(gold_df)
@@ -87,7 +87,9 @@ def run_backtesting(
             {
                 "modelo": "Baseline (D-7)",
                 "mae_mwmed": mean_absolute_error(y_all, all_preds["y_pred_baseline"]),
-                "mape_pct": mean_absolute_percentage_error(y_all, all_preds["y_pred_baseline"]) * 100,
+                "mape_pct": (
+                    mean_absolute_percentage_error(y_all, all_preds["y_pred_baseline"]) * 100
+                ),
             },
             {
                 "modelo": "LightGBM",
@@ -100,6 +102,13 @@ def run_backtesting(
     reports_dir.mkdir(parents=True, exist_ok=True)
     windows_df.to_csv(reports_dir / "backtesting_windows.csv", index=False)
     summary_df.to_csv(reports_dir / "backtesting_results.csv", index=False)
+    pred_cols = [
+        "data_referencia",
+        "val_cargaenergiamwmed",
+        "y_pred_baseline",
+        "y_pred_lgbm",
+    ]
+    all_preds[pred_cols].to_csv(reports_dir / "backtesting_predictions.csv", index=False)
 
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     mlflow.set_experiment(experiment_name)
@@ -112,6 +121,7 @@ def run_backtesting(
         mlflow.log_metric("lgbm_mape", float(summary_df.loc[1, "mape_pct"]))
         mlflow.log_artifact(str(reports_dir / "backtesting_results.csv"))
         mlflow.log_artifact(str(reports_dir / "backtesting_windows.csv"))
+        mlflow.log_artifact(str(reports_dir / "backtesting_predictions.csv"))
 
     print("\n=== Resumo Backtesting (Janelas Temporais de 7 dias) ===")
     print(summary_df.to_string(index=False))

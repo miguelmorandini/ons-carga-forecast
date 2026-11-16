@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import mlflow
 import mlflow.lightgbm
@@ -73,7 +72,11 @@ def train_and_log(
 
         mlflow.log_metric("holdout_mae", mae)
         mlflow.log_metric("holdout_mape", mape)
-        mlflow.lightgbm.log_model(model, name="model")
+        mlflow.lightgbm.log_model(
+            model,
+            name="model",
+            input_example=train_df[FEATURE_COLUMNS].head(5),
+        )
 
         logger.info(
             "Modelo registrado no MLflow | Holdout (%s a %s): MAE=%.2f MWmed | MAPE=%.2f%%",

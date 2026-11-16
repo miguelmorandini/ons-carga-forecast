@@ -107,7 +107,9 @@ def ingest_bronze(
             _download_with_retries(url, tmp_dest, timeout=timeout, max_retries=max_retries)
             num_rows = _is_valid_parquet(tmp_dest)
             if num_rows is None:
-                raise RuntimeError(f"Arquivo baixado de {url} não é um Parquet válido ou está vazio.")
+                raise RuntimeError(
+                    f"Arquivo baixado de {url} não é um Parquet válido ou está vazio."
+                )
             tmp_dest.replace(dest)
             size_kb = dest.stat().st_size / 1024
             logger.info("Salvo em %s (%.1f KB, %d linhas)", dest, size_kb, num_rows)

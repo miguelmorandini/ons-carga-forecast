@@ -27,4 +27,7 @@ if __name__ == "__main__":
         (valid["val_cargaenergiamwmed"] - valid["y_pred_baseline"]).abs()
         / valid["val_cargaenergiamwmed"]
     ).mean() * 100
-    print(f"Baseline (série completa válida: {len(valid)} dias) -> MAE: {mae:.2f} MWmed | MAPE: {mape:.2f}%")
+    print(
+        f"Baseline (série completa válida: {len(valid)} dias) -> "
+        f"MAE: {mae:.2f} MWmed | MAPE: {mape:.2f}%"
+    )

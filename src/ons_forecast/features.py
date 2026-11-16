@@ -45,10 +45,10 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # Variáveis de calendário conhecidas antecipadamente para a data alvo t
     idx = daily.index
-    daily["day_of_week"] = idx.dayofweek
+    daily["day_of_week"] = idx.day_of_week
     daily["month"] = idx.month
-    daily["day_of_year"] = idx.dayofyear
-    daily["is_weekend"] = (idx.dayofweek >= 5).astype(int)
+    daily["day_of_year"] = idx.day_of_year
+    daily["is_weekend"] = (idx.day_of_week >= 5).astype(int)
 
     years = sorted(idx.year.unique().tolist())
     br_holidays = holidays.country_holidays("BR", years=years)
