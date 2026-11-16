@@ -84,6 +84,20 @@ uv run python -m ons_forecast.global_model
 | `S` | 732.35 | **521.52** | **3.90%** |
 | `SE` | 2,787.07 | **2,155.03** | **4.69%** |
 
+### Exogenous Weather Feature Benchmark (INMET)
+
+```bash
+uv run python -m ons_forecast.weather
+```
+
+Evaluated over the common INMET availability window (`2026-08-23` to `2026-10-31`, 10 × 7-day windows) using strictly lagged (`>= 7 days`) daily temperature aggregated from `SE` stations (`A701`, `A652`, `A521`, `A001`):
+
+| Model | MAE (MWmed) | MAPE (%) |
+| --- | ---: | ---: |
+| Baseline (D-7) | 2,495.01 | 5.62% |
+| LightGBM (Load + Calendar) | 2,027.17 | 4.49% |
+| **LightGBM + INMET Temp (lag>=7)** | **1,948.16** | **4.30%** |
+
 ## Technical Decisions
 
 - **Zero temporal leakage**: to forecast `D+7`, all autoregressive features strictly use lags `>= 7 days` (`lag_7`, `lag_14`, `lag_21`, `lag_28`, and rolling mean/std computed over `t-7`) aligned on a continuous daily grid.

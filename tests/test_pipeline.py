@@ -16,6 +16,11 @@ from ons_forecast.features import (
 )
 from ons_forecast.ingest import _is_valid_parquet
 from ons_forecast.train import fit_lgbm
+from ons_forecast.weather import (
+    WEATHER_FEATURES,
+    add_lagged_weather_features,
+    parse_inmet_station_csv,
+)
 
 
 def _make_sample_series(n_days: int = 60, start: str = "2025-01-01") -> pd.DataFrame:
@@ -99,4 +104,45 @@ def test_global_features_isolate_lags_per_subsystem() -> None:
 
     assert set(GLOBAL_FEATURE_COLUMNS).issubset(feats.columns)
     assert se_lag7 != s_lag7
+
+
+def test_inmet_csv_parser_filters_sentinels_and_parses_comma_decimals() -> None:
+    sample_csv = (
+        "REGIAO:;SE\nUF:;SP\nESTACAO:;SAO PAULO\nCODIGO (WMO):;A701\n"
+        "LATITUDE:;-23,5\nLONGITUDE:;-46,6\nALTITUDE:;792\nDATA DE FUNDACAO:;25/07/06\n"
+        "Data;Hora UTC;TEMPERATURA DO AR - BULBO SECO, HORARIA (°C);\n"
+        "2026/01/01;0000 UTC;22,5;\n"
+        "2026/01/01;0100 UTC;-9999;\n"
+        "2026/01/01;0200 UTC;24,5;\n"
+    ).encode("latin1")
+    parsed = parse_inmet_station_csv(sample_csv)
+    assert len(parsed) == 1
+    assert parsed["temp_mean"].iloc[0] == 23.5
+
+
+def test_weather_features_have_no_leakage_within_7_days() -> None:
+    base_df = _make_sample_series(n_days=30)
+    weather_df = pd.DataFrame(
+        {
+            "data_referencia": base_df["data_referencia"],
+            "temp_mean_se": 25.0,
+            "temp_max_se": 30.0,
+        }
+    )
+    target = pd.Timestamp("2025-01-25")
+
+    perturbed = weather_df.copy()
+    mask = (perturbed["data_referencia"] > target - pd.Timedelta(days=7)) & (
+        perturbed["data_referencia"] <= target
+    )
+    perturbed.loc[mask, "temp_mean_se"] = 45.0
+    perturbed.loc[mask, "temp_max_se"] = 50.0
+
+    f1 = add_lagged_weather_features(base_df, weather_df)
+    f2 = add_lagged_weather_features(base_df, perturbed)
+
+    r1 = f1.loc[f1["data_referencia"] == target, WEATHER_FEATURES]
+    r2 = f2.loc[f2["data_referencia"] == target, WEATHER_FEATURES]
+    pd.testing.assert_frame_equal(r1, r2)
+
 
