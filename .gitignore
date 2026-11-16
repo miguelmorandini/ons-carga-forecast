@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Data & artifacts
+data/
+mlruns/
+mlartifacts/
+*.duckdb
+*.duckdb.wal
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# Reports & OS
+.DS_Store
+Thumbs.db
+.env
