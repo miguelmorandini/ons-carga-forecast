@@ -2255,17 +2255,21 @@ name = "ons-carga-forecast"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "dbt-duckdb" },
     { name = "duckdb" },
+    { name = "pandas" },
+    { name = "plotly" },
+    { name = "streamlit" },
+]
+
+[package.optional-dependencies]
+pipeline = [
+    { name = "dbt-duckdb" },
     { name = "holidays" },
     { name = "lightgbm" },
     { name = "mlflow" },
-    { name = "pandas" },
-    { name = "plotly" },
     { name = "pyarrow" },
     { name = "scikit-learn" },
     { name = "statsforecast" },
-    { name = "streamlit" },
 ]
 
 [package.dev-dependencies]
@@ -2276,18 +2280,19 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dbt-duckdb", specifier = ">=1.8.0" },
+    { name = "dbt-duckdb", marker = "extra == 'pipeline'", specifier = ">=1.8.0" },
     { name = "duckdb", specifier = ">=1.1.0" },
-    { name = "holidays", specifier = ">=0.60" },
-    { name = "lightgbm", specifier = ">=4.5.0" },
-    { name = "mlflow", specifier = ">=2.17.0" },
+    { name = "holidays", marker = "extra == 'pipeline'", specifier = ">=0.60" },
+    { name = "lightgbm", marker = "extra == 'pipeline'", specifier = ">=4.5.0" },
+    { name = "mlflow", marker = "extra == 'pipeline'", specifier = ">=2.17.0" },
     { name = "pandas", specifier = ">=2.2.0" },
     { name = "plotly", specifier = ">=5.24.0" },
-    { name = "pyarrow", specifier = ">=17.0.0" },
-    { name = "scikit-learn", specifier = ">=1.5.0" },
-    { name = "statsforecast", specifier = ">=2.0.0" },
+    { name = "pyarrow", marker = "extra == 'pipeline'", specifier = ">=17.0.0" },
+    { name = "scikit-learn", marker = "extra == 'pipeline'", specifier = ">=1.5.0" },
+    { name = "statsforecast", marker = "extra == 'pipeline'", specifier = ">=2.0.0" },
     { name = "streamlit", specifier = ">=1.40.0" },
 ]
+provides-extras = ["pipeline"]
 
 [package.metadata.requires-dev]
 dev = [

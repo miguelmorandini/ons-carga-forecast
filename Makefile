@@ -1,7 +1,7 @@
 .PHONY: sync pipeline global-model weather-model lint test dashboard mlflow
 
 sync:
-	uv sync
+	uv sync --extra pipeline
 
 pipeline:
 	uv run ons-pipeline

@@ -20,7 +20,7 @@ Prerequisites: Python `>=3.12` and [`uv`](https://docs.astral.sh/uv/).
 ### Single-Command Execution
 
 ```bash
-uv sync
+uv sync --extra pipeline
 uv run ons-pipeline
 ```
 

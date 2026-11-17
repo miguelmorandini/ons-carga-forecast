@@ -8,6 +8,6 @@ COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 COPY dbt_project ./dbt_project
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --extra pipeline
 
 CMD ["uv", "run", "ons-pipeline"]
