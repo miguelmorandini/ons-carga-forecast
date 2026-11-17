@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # Allow running directly on Streamlit Cloud without
     from ons_forecast.data_loader import DEFAULT_DB_PATH, load_gold_se
 
 REPORTS_DIR = Path("reports")
+FONT_FAMILY = "IBM Plex Sans, sans-serif"
 
 
 @st.cache_data(show_spinner=False)
@@ -127,6 +128,7 @@ def build_series_figure(
         title="Série Histórica e Previsões (MWmed)",
         xaxis_title="Data de Referência",
         yaxis_title="Carga de Energia (MWmed)",
+        font={"family": FONT_FAMILY},
         hovermode="x unified",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
         margin={"l": 20, "r": 20, "t": 60, "b": 20},
@@ -187,6 +189,7 @@ def build_error_figure(
         title=title,
         xaxis_title="Data de Referência",
         yaxis_title=y_title,
+        font={"family": FONT_FAMILY},
         hovermode="x unified",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
         margin={"l": 20, "r": 20, "t": 60, "b": 20},
@@ -232,6 +235,7 @@ def build_windows_figure(windows_df: pd.DataFrame, show_baseline: bool) -> go.Fi
         title="MAE por Janela de Backtesting (7 dias)",
         xaxis_title="Janela Temporal",
         yaxis_title="MAE (MWmed)",
+        font={"family": FONT_FAMILY},
         barmode="group",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
         margin={"l": 20, "r": 20, "t": 60, "b": 20},
@@ -243,10 +247,20 @@ def main() -> None:
     """Render the Streamlit dashboard."""
     st.set_page_config(
         page_title="Previsão de Carga ONS — Subsistema SE",
-        page_icon="⚡",
         layout="wide",
     )
-    st.title("⚡ Previsão de Carga de Energia — Subsistema SE (ONS)")
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+        html, body, [class*="css"], .stApp {
+            font-family: 'IBM Plex Sans', sans-serif;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.title("Previsão de Carga de Energia — Subsistema SE (ONS)")
     st.caption(
         "Acompanhamento da série histórica diária (MWmed), previsões D+7 (LightGBM vs. "
         "Baseline D-7) e análise de erro no backtesting temporal."
