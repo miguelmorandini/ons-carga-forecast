@@ -494,30 +494,6 @@ def main() -> None:
         return
 
     summary = build_challenge_summary(results_df, windows_df, preds_df)
-    _render_challenge_answer(summary)
-
-    mae_diff = summary.mae_lgbm - summary.mae_baseline
-    mae_pct_gain = (mae_diff / summary.mae_baseline) * 100
-    mape_diff = summary.mape_lgbm - summary.mape_baseline
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric(
-        "MAE — LightGBM",
-        f"{summary.mae_lgbm:,.2f} MWmed",
-        delta=f"{mae_diff:,.2f} MWmed ({mae_pct_gain:.1f}%)",
-        delta_color="inverse",
-    )
-    col2.metric(
-        "MAPE — LightGBM",
-        f"{summary.mape_lgbm:.2f}%",
-        delta=f"{mape_diff:.2f} p.p.",
-        delta_color="inverse",
-    )
-    col3.metric("MAE — Baseline (D-7)", f"{summary.mae_baseline:,.2f} MWmed")
-    col4.metric(
-        "Janelas Vencidas (LGBM vs. D-7)",
-        f"{summary.lgbm_wins_windows}/{summary.total_windows} ({summary.n_days} dias)",
-    )
 
     with st.sidebar:
         st.header("Filtros")
@@ -555,56 +531,83 @@ def main() -> None:
             & (hist_df["data_referencia"] <= win_row["fim"])
         ]
 
-    st.plotly_chart(
-        build_series_figure(hist_filtered, preds_filtered, show_baseline),
-        use_container_width=True,
-    )
+    tab_dashboard, tab_roadmap = st.tabs(["Dashboard", "Roteiro"])
 
-    tab_roadmap, tab_err_mw, tab_err_pct, tab_windows, tab_table = st.tabs(
-        [
-            "Roteiro & Metodologia",
-            "Erro Diário (MWmed)",
-            "Erro Diário (%)",
-            "Desempenho por Janela",
-            "Tabela Detalhada",
-        ]
-    )
+    with tab_dashboard:
+        mae_diff = summary.mae_lgbm - summary.mae_baseline
+        mae_pct_gain = (mae_diff / summary.mae_baseline) * 100
+        mape_diff = summary.mape_lgbm - summary.mape_baseline
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric(
+            "MAE — LightGBM",
+            f"{summary.mae_lgbm:,.2f} MWmed",
+            delta=f"{mae_diff:,.2f} MWmed ({mae_pct_gain:.1f}%)",
+            delta_color="inverse",
+        )
+        col2.metric(
+            "MAPE — LightGBM",
+            f"{summary.mape_lgbm:.2f}%",
+            delta=f"{mape_diff:.2f} p.p.",
+            delta_color="inverse",
+        )
+        col3.metric("MAE — Baseline (D-7)", f"{summary.mae_baseline:,.2f} MWmed")
+        col4.metric(
+            "Janelas Vencidas (LGBM vs. D-7)",
+            f"{summary.lgbm_wins_windows}/{summary.total_windows} ({summary.n_days} dias)",
+        )
+
+        st.plotly_chart(
+            build_series_figure(hist_filtered, preds_filtered, show_baseline),
+            use_container_width=True,
+        )
+
+        tab_err_mw, tab_err_pct, tab_windows, tab_table = st.tabs(
+            [
+                "Erro Diário (MWmed)",
+                "Erro Diário (%)",
+                "Desempenho por Janela",
+                "Tabela Detalhada",
+            ]
+        )
+
+        with tab_err_mw:
+            st.plotly_chart(
+                build_error_figure(preds_filtered, show_baseline, metric="mwmed"),
+                use_container_width=True,
+            )
+        with tab_err_pct:
+            st.plotly_chart(
+                build_error_figure(preds_filtered, show_baseline, metric="pct"),
+                use_container_width=True,
+            )
+        with tab_windows:
+            st.plotly_chart(
+                build_windows_figure(windows_df, show_baseline),
+                use_container_width=True,
+            )
+        with tab_table:
+            display_df = preds_filtered.rename(
+                columns={
+                    "data_referencia": "Data",
+                    "val_cargaenergiamwmed": "Carga Real (MWmed)",
+                    "y_pred_baseline": "Baseline D-7 (MWmed)",
+                    "y_pred_autoets": "AutoETS (MWmed)",
+                    "y_pred_lgbm": "LightGBM D+7 (MWmed)",
+                    "erro_abs_baseline": "Erro Abs. Baseline (MWmed)",
+                    "erro_abs_autoets": "Erro Abs. AutoETS (MWmed)",
+                    "erro_abs_lgbm": "Erro Abs. LightGBM (MWmed)",
+                    "ape_baseline_pct": "APE Baseline (%)",
+                    "ape_autoets_pct": "APE AutoETS (%)",
+                    "ape_lgbm_pct": "APE LightGBM (%)",
+                }
+            )
+            display_df["Data"] = display_df["Data"].dt.strftime("%Y-%m-%d")
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     with tab_roadmap:
+        _render_challenge_answer(summary)
         _render_roadmap_tab(hist_df, results_df, summary, global_df, weather_df)
-    with tab_err_mw:
-        st.plotly_chart(
-            build_error_figure(preds_filtered, show_baseline, metric="mwmed"),
-            use_container_width=True,
-        )
-    with tab_err_pct:
-        st.plotly_chart(
-            build_error_figure(preds_filtered, show_baseline, metric="pct"),
-            use_container_width=True,
-        )
-    with tab_windows:
-        st.plotly_chart(
-            build_windows_figure(windows_df, show_baseline),
-            use_container_width=True,
-        )
-    with tab_table:
-        display_df = preds_filtered.rename(
-            columns={
-                "data_referencia": "Data",
-                "val_cargaenergiamwmed": "Carga Real (MWmed)",
-                "y_pred_baseline": "Baseline D-7 (MWmed)",
-                "y_pred_autoets": "AutoETS (MWmed)",
-                "y_pred_lgbm": "LightGBM D+7 (MWmed)",
-                "erro_abs_baseline": "Erro Abs. Baseline (MWmed)",
-                "erro_abs_autoets": "Erro Abs. AutoETS (MWmed)",
-                "erro_abs_lgbm": "Erro Abs. LightGBM (MWmed)",
-                "ape_baseline_pct": "APE Baseline (%)",
-                "ape_autoets_pct": "APE AutoETS (%)",
-                "ape_lgbm_pct": "APE LightGBM (%)",
-            }
-        )
-        display_df["Data"] = display_df["Data"].dt.strftime("%Y-%m-%d")
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":
