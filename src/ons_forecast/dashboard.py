@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -75,6 +76,83 @@ def load_backtesting_artifacts(
             preds_df["erro_abs_autoets"] / preds_df["val_cargaenergiamwmed"]
         ) * 100
     return results_df, windows_df, preds_df
+
+
+@st.cache_data(show_spinner=False)
+def load_optional_benchmarks(
+    reports_dir: Path = REPORTS_DIR,
+) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+    """Load optional global and exogenous-weather benchmark CSVs when available."""
+    global_path = reports_dir / "global_backtesting_results.csv"
+    weather_path = reports_dir / "weather_backtesting_results.csv"
+    global_df = pd.read_csv(global_path) if global_path.exists() else None
+    weather_df = pd.read_csv(weather_path) if weather_path.exists() else None
+    return global_df, weather_df
+
+
+@dataclass(frozen=True)
+class ChallengeSummary:
+    """Typed summary of backtesting results answering the challenge question."""
+
+    beat_baseline: bool
+    mae_baseline: float
+    mape_baseline: float
+    mae_lgbm: float
+    mape_lgbm: float
+    mae_autoets: float | None
+    mape_autoets: float | None
+    mae_reduction_mw: float
+    mae_reduction_pct: float
+    mape_reduction_pp: float
+    mape_rel_gain_pct: float
+    lgbm_wins_windows: int
+    total_windows: int
+    n_days: int
+    eval_start: pd.Timestamp
+    eval_end: pd.Timestamp
+
+
+def build_challenge_summary(
+    results_df: pd.DataFrame,
+    windows_df: pd.DataFrame,
+    preds_df: pd.DataFrame,
+) -> ChallengeSummary:
+    """Compute summary metrics answering the challenge question from backtesting outputs."""
+    base_row = results_df.loc[results_df["modelo"] == "Baseline (D-7)"].iloc[0]
+    lgbm_row = results_df.loc[results_df["modelo"] == "LightGBM"].iloc[0]
+    ets_rows = results_df.loc[results_df["modelo"] == "AutoETS (statsforecast)"]
+
+    mae_base = float(base_row["mae_mwmed"])
+    mape_base = float(base_row["mape_pct"])
+    mae_lgbm = float(lgbm_row["mae_mwmed"])
+    mape_lgbm = float(lgbm_row["mape_pct"])
+
+    mae_reduction_mw = mae_base - mae_lgbm
+    mae_reduction_pct = (mae_reduction_mw / mae_base) * 100
+    mape_reduction_pp = mape_base - mape_lgbm
+    mape_rel_gain_pct = (mape_reduction_pp / mape_base) * 100
+
+    lgbm_wins = int((windows_df["mae_lgbm"] < windows_df["mae_baseline"]).sum())
+    total_windows = len(windows_df)
+
+    return ChallengeSummary(
+        beat_baseline=mae_lgbm < mae_base,
+        mae_baseline=mae_base,
+        mape_baseline=mape_base,
+        mae_lgbm=mae_lgbm,
+        mape_lgbm=mape_lgbm,
+        mae_autoets=float(ets_rows.iloc[0]["mae_mwmed"]) if not ets_rows.empty else None,
+        mape_autoets=float(ets_rows.iloc[0]["mape_pct"]) if not ets_rows.empty else None,
+        mae_reduction_mw=mae_reduction_mw,
+        mae_reduction_pct=mae_reduction_pct,
+        mape_reduction_pp=mape_reduction_pp,
+        mape_rel_gain_pct=mape_rel_gain_pct,
+        lgbm_wins_windows=lgbm_wins,
+        total_windows=total_windows,
+        n_days=len(preds_df),
+        eval_start=pd.Timestamp(preds_df["data_referencia"].min()),
+        eval_end=pd.Timestamp(preds_df["data_referencia"].max()),
+    )
 
 
 def build_series_figure(
@@ -243,6 +321,144 @@ def build_windows_figure(windows_df: pd.DataFrame, show_baseline: bool) -> go.Fi
     return fig
 
 
+def _format_model_metrics_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Format a (modelo, mae_mwmed, mape_pct) benchmark table for display."""
+    formatted = df.rename(
+        columns={
+            "modelo": "Modelo",
+            "mae_mwmed": "MAE (MWmed)",
+            "mape_pct": "MAPE (%)",
+        }
+    ).copy()
+    formatted["MAE (MWmed)"] = formatted["MAE (MWmed)"].map(lambda v: f"{v:,.2f}")
+    formatted["MAPE (%)"] = formatted["MAPE (%)"].map(lambda v: f"{v:.2f}%")
+    return formatted
+
+
+def _render_challenge_answer(summary: ChallengeSummary) -> None:
+    """Render the direct executive answer to the challenge question."""
+    verdict = "Sim" if summary.beat_baseline else "Não"
+    eval_start = summary.eval_start.strftime("%d/%m/%Y")
+    eval_end = summary.eval_end.strftime("%d/%m/%Y")
+    ets_note = ""
+    if summary.mae_autoets is not None and summary.mape_autoets is not None:
+        ets_note = (
+            f" O modelo estatístico **AutoETS (`statsforecast`)** também superou o baseline "
+            f"(MAE de **{summary.mae_autoets:,.2f} MWmed** | "
+            f"MAPE de **{summary.mape_autoets:.2f}%**), mas o LightGBM manteve o menor erro."
+        )
+
+    message = (
+        f"**Resposta ao Desafio — É possível superar o baseline ingênuo (D-7) em D+7?**\n\n"
+        f"**{verdict}.** No backtesting temporal com **{summary.total_windows} janelas "
+        f"expansivas de 7 dias** ({summary.n_days} dias entre `{eval_start}` e `{eval_end}`), "
+        f"o **LightGBM** reduziu o MAE de **{summary.mae_baseline:,.2f} MWmed** para "
+        f"**{summary.mae_lgbm:,.2f} MWmed** (ganho de **{summary.mae_reduction_mw:,.2f} MWmed**, "
+        f"**-{summary.mae_reduction_pct:.1f}%**) e o MAPE de **{summary.mape_baseline:.2f}%** "
+        f"para **{summary.mape_lgbm:.2f}%** (**-{summary.mape_reduction_pp:.2f} p.p.**, ganho "
+        f"relativo de **{summary.mape_rel_gain_pct:.1f}%**), vencendo o baseline em "
+        f"**{summary.lgbm_wins_windows} de {summary.total_windows}** janelas semanais."
+        f"{ets_note}"
+    )
+    if summary.beat_baseline:
+        st.success(message)
+    else:
+        st.warning(message)
+
+
+def _render_roadmap_tab(
+    hist_df: pd.DataFrame,
+    results_df: pd.DataFrame,
+    summary: ChallengeSummary,
+    global_df: pd.DataFrame | None,
+    weather_df: pd.DataFrame | None,
+) -> None:
+    """Render structured answers covering every stage of the project roadmap."""
+    hist_start = hist_df["data_referencia"].min().strftime("%d/%m/%Y")
+    hist_end = hist_df["data_referencia"].max().strftime("%d/%m/%Y")
+    eval_start = summary.eval_start.strftime("%d/%m/%Y")
+    eval_end = summary.eval_end.strftime("%d/%m/%Y")
+
+    st.subheader("Roteiro do Projeto e Respostas Técnicas")
+    st.markdown(
+        f"""
+1. **Objetivo e Baseline Ingênuo (`D-7`)**  
+   Prever a carga diária de energia (**MWmed**) do subsistema **Sudeste/Centro-Oeste (`SE`)**
+   com horizonte de **7 dias à frente (`D+7`)**, comparando contra o baseline ingênuo
+   `y_hat(t) = y(t - 7 dias)` alinhado estritamente por data (evitando deslocamento posicional em
+   eventuais falhas de calendário).
+
+2. **Pipeline de Dados (Arquitetura Medalhão: Bronze → Silver → Gold)**  
+   - **Bronze**: ingestão anual dos dados abertos do ONS
+     (`CARGA_ENERGIA_*.parquet`, `2018`–`2026`).  
+   - **Silver (`dbt` + DuckDB)**: padronização de tipos, remoção de nulos e deduplicação por
+     `(id_subsistema, data_referencia)` com testes automatizados de qualidade (unicidade, valores
+     positivos e continuidade de datas).  
+   - **Gold (`gold_carga_diaria_se`)**: recorte diário do subsistema `SE` totalizando
+     **{len(hist_df):,} dias** contínuos (`{hist_start}` a `{hist_end}`).
+
+3. **Engenharia de Atributos sem Vazamento Temporal (Zero Leakage)**  
+   Para garantir previsibilidade real em `D+7`, todas as variáveis históricas utilizam apenas dados
+   disponíveis até `t - 7` sobre uma grade diária contínua:
+   - **Lags autorregressivos**: `lag_7`, `lag_14`, `lag_21` e `lag_28`.  
+   - **Estatísticas móveis sobre `t - 7`**: média e desvio padrão de 7 e 28 dias
+     (`rolling_mean_7`, `rolling_std_7`, `rolling_mean_28`, `rolling_std_28`).  
+   - **Calendário conhecido antecipadamente**: `day_of_week`, `month`, `day_of_year`,
+     `is_weekend` e feriados nacionais brasileiros (`is_holiday_br` via `holidays`).
+
+4. **Validação Temporal e Benchmark de Modelos**  
+   Avaliação com **{summary.total_windows} janelas expansivas de 7 dias**
+   ({summary.n_days} dias entre `{eval_start}` e `{eval_end}`): em cada janela, o treino ocorre
+   estritamente no passado (`data < inicio_janela`) e a previsão é avaliada nos 7 dias seguintes,
+   com rastreamento de parâmetros, métricas e artefatos no **MLflow**.
+"""
+    )
+
+    st.dataframe(_format_model_metrics_table(results_df), use_container_width=True, hide_index=True)
+
+    st.subheader("Extensões Implementadas (Próximos Passos)")
+    col_global, col_weather = st.columns(2)
+
+    with col_global:
+        st.markdown("**Modelo Global Multi-Subsistema (`SE`, `S`, `NE`, `N`)**")
+        st.caption(
+            "Treinamento único compartilhado entre todos os subsistemas brasileiros usando "
+            "features isoladas por subsistema e `id_subsistema` como variável categórica."
+        )
+        if global_df is not None:
+            g_disp = global_df.rename(
+                columns={
+                    "id_subsistema": "Subsistema",
+                    "mae_baseline": "MAE Baseline (MWmed)",
+                    "mape_baseline_pct": "MAPE Baseline (%)",
+                    "mae_global_lgbm": "MAE Global LGBM (MWmed)",
+                    "mape_global_lgbm_pct": "MAPE Global LGBM (%)",
+                }
+            ).copy()
+            for col in ("MAE Baseline (MWmed)", "MAE Global LGBM (MWmed)"):
+                g_disp[col] = g_disp[col].map(lambda v: f"{v:,.2f}")
+            for col in ("MAPE Baseline (%)", "MAPE Global LGBM (%)"):
+                g_disp[col] = g_disp[col].map(lambda v: f"{v:.2f}%")
+            st.dataframe(g_disp, use_container_width=True, hide_index=True)
+        else:
+            st.info("Artefato `reports/global_backtesting_results.csv` não encontrado.")
+
+    with col_weather:
+        st.markdown("**Variável Exógena de Temperatura (INMET, `lag >= 7`)**")
+        st.caption(
+            "Temperatura média e máxima diária das estações INMET do Sudeste (`A701`, `A652`, "
+            "`A521`, `A001`) com defasagem mínima de 7 dias na janela comum disponível."
+        )
+        if weather_df is not None:
+            st.dataframe(
+                _format_model_metrics_table(weather_df),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("Artefato `reports/weather_backtesting_results.csv` não encontrado.")
+
+
 def main() -> None:
     """Render the Streamlit dashboard."""
     st.set_page_config(
@@ -262,13 +478,14 @@ def main() -> None:
     )
     st.title("Previsão de Carga de Energia — Subsistema SE (ONS)")
     st.caption(
-        "Acompanhamento da série histórica diária (MWmed), previsões D+7 (LightGBM vs. "
-        "Baseline D-7) e análise de erro no backtesting temporal."
+        "Acompanhamento da série histórica diária (MWmed), previsões D+7 (LightGBM, AutoETS e "
+        "Baseline D-7), resposta ao desafio e análise de erro no backtesting temporal."
     )
 
     try:
         hist_df = load_historical_series()
         results_df, windows_df, preds_df = load_backtesting_artifacts()
+        global_df, weather_df = load_optional_benchmarks()
     except FileNotFoundError as exc:
         st.error(
             f"Dados não encontrados ({exc}). Execute antes o pipeline (`dbt run` e "
@@ -276,28 +493,31 @@ def main() -> None:
         )
         return
 
-    base_row = results_df.loc[results_df["modelo"] == "Baseline (D-7)"].iloc[0]
-    lgbm_row = results_df.loc[results_df["modelo"] == "LightGBM"].iloc[0]
+    summary = build_challenge_summary(results_df, windows_df, preds_df)
+    _render_challenge_answer(summary)
 
-    mae_diff = lgbm_row["mae_mwmed"] - base_row["mae_mwmed"]
-    mae_pct_gain = (mae_diff / base_row["mae_mwmed"]) * 100
-    mape_diff = lgbm_row["mape_pct"] - base_row["mape_pct"]
+    mae_diff = summary.mae_lgbm - summary.mae_baseline
+    mae_pct_gain = (mae_diff / summary.mae_baseline) * 100
+    mape_diff = summary.mape_lgbm - summary.mape_baseline
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric(
         "MAE — LightGBM",
-        f"{lgbm_row['mae_mwmed']:,.2f} MWmed",
+        f"{summary.mae_lgbm:,.2f} MWmed",
         delta=f"{mae_diff:,.2f} MWmed ({mae_pct_gain:.1f}%)",
         delta_color="inverse",
     )
     col2.metric(
         "MAPE — LightGBM",
-        f"{lgbm_row['mape_pct']:.2f}%",
+        f"{summary.mape_lgbm:.2f}%",
         delta=f"{mape_diff:.2f} p.p.",
         delta_color="inverse",
     )
-    col3.metric("MAE — Baseline (D-7)", f"{base_row['mae_mwmed']:,.2f} MWmed")
-    col4.metric("Janelas Avaliadas", f"{len(windows_df)} × 7 dias ({len(preds_df)} dias)")
+    col3.metric("MAE — Baseline (D-7)", f"{summary.mae_baseline:,.2f} MWmed")
+    col4.metric(
+        "Janelas Vencidas (LGBM vs. D-7)",
+        f"{summary.lgbm_wins_windows}/{summary.total_windows} ({summary.n_days} dias)",
+    )
 
     with st.sidebar:
         st.header("Filtros")
@@ -340,8 +560,9 @@ def main() -> None:
         use_container_width=True,
     )
 
-    tab_err_mw, tab_err_pct, tab_windows, tab_table = st.tabs(
+    tab_roadmap, tab_err_mw, tab_err_pct, tab_windows, tab_table = st.tabs(
         [
+            "Roteiro & Metodologia",
             "Erro Diário (MWmed)",
             "Erro Diário (%)",
             "Desempenho por Janela",
@@ -349,6 +570,8 @@ def main() -> None:
         ]
     )
 
+    with tab_roadmap:
+        _render_roadmap_tab(hist_df, results_df, summary, global_df, weather_df)
     with tab_err_mw:
         st.plotly_chart(
             build_error_figure(preds_filtered, show_baseline, metric="mwmed"),
@@ -370,10 +593,13 @@ def main() -> None:
                 "data_referencia": "Data",
                 "val_cargaenergiamwmed": "Carga Real (MWmed)",
                 "y_pred_baseline": "Baseline D-7 (MWmed)",
+                "y_pred_autoets": "AutoETS (MWmed)",
                 "y_pred_lgbm": "LightGBM D+7 (MWmed)",
                 "erro_abs_baseline": "Erro Abs. Baseline (MWmed)",
+                "erro_abs_autoets": "Erro Abs. AutoETS (MWmed)",
                 "erro_abs_lgbm": "Erro Abs. LightGBM (MWmed)",
                 "ape_baseline_pct": "APE Baseline (%)",
+                "ape_autoets_pct": "APE AutoETS (%)",
                 "ape_lgbm_pct": "APE LightGBM (%)",
             }
         )

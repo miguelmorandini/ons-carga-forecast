@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from ons_forecast.baseline import compute_naive_baseline
+from ons_forecast.dashboard import build_challenge_summary
 from ons_forecast.features import (
     FEATURE_COLUMNS,
     GLOBAL_FEATURE_COLUMNS,
@@ -144,5 +145,36 @@ def test_weather_features_have_no_leakage_within_7_days() -> None:
     r1 = f1.loc[f1["data_referencia"] == target, WEATHER_FEATURES]
     r2 = f2.loc[f2["data_referencia"] == target, WEATHER_FEATURES]
     pd.testing.assert_frame_equal(r1, r2)
+
+
+def test_build_challenge_summary_computes_gains_and_window_wins() -> None:
+    results_df = pd.DataFrame(
+        [
+            {"modelo": "Baseline (D-7)", "mae_mwmed": 2000.0, "mape_pct": 5.0},
+            {"modelo": "AutoETS (statsforecast)", "mae_mwmed": 1800.0, "mape_pct": 4.5},
+            {"modelo": "LightGBM", "mae_mwmed": 1500.0, "mape_pct": 3.75},
+        ]
+    )
+    windows_df = pd.DataFrame(
+        [
+            {"janela": 1, "mae_baseline": 2100.0, "mae_lgbm": 1400.0},
+            {"janela": 2, "mae_baseline": 1900.0, "mae_lgbm": 1950.0},
+            {"janela": 3, "mae_baseline": 2000.0, "mae_lgbm": 1150.0},
+        ]
+    )
+    preds_df = pd.DataFrame(
+        {"data_referencia": pd.date_range("2026-09-01", periods=21, freq="D")}
+    )
+
+    summary = build_challenge_summary(results_df, windows_df, preds_df)
+
+    assert summary.beat_baseline is True
+    assert summary.mae_reduction_mw == 500.0
+    assert summary.mae_reduction_pct == 25.0
+    assert summary.mape_reduction_pp == 1.25
+    assert summary.lgbm_wins_windows == 2
+    assert summary.total_windows == 3
+    assert summary.n_days == 21
+    assert summary.mae_autoets == 1800.0
 
 
