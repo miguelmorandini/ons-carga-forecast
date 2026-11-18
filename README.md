@@ -2,6 +2,8 @@
 
 End-to-end pipeline to forecast daily energy load (MWmed) for the Southeast/Central-West (`SE`) subsystem 7 days ahead using ONS open data (`2018`–`2026`).
 
+**Live Dashboard:** [ons-carga-forecast.streamlit.app](https://ons-carga-forecast.streamlit.app/)
+
 ## Answer to the Challenge Question
 
 **Yes.** Across temporal backtesting with 12 expanding 7-day windows (84 days from `2026-08-23` to `2026-11-14`), **LightGBM** outperformed the naive `D-7` baseline (same day of the previous week).  
